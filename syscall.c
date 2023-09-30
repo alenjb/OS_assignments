@@ -104,9 +104,9 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_getpname(void);
-extern int sys_getnice(int);
-extern int sys_setnice(int, int);
-extern void sys_ps(int);
+extern int sys_getnice(void);
+extern int sys_setnice(void);
+extern int sys_ps(void);
 
 
 static int (*syscalls[])(void) = {

@@ -63,6 +63,7 @@ myproc(void)
   pushcli();
   c = mycpu();
   p = c->proc;
+  
   popcli();
   return p;
 }
@@ -77,12 +78,12 @@ allocproc(void)
 {
   struct proc *p;
   char *sp;
-
   acquire(&ptable.lock);
 
-  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if (p->state == UNUSED)
       goto found;
+  }
 
   release(&ptable.lock);
   return 0;
@@ -90,6 +91,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->nice = 20; // nice값 20으로 초기화
 
   release(&ptable.lock);
 
@@ -212,6 +214,9 @@ int fork(void)
     if (curproc->ofile[i])
       np->ofile[i] = filedup(curproc->ofile[i]);
   np->cwd = idup(curproc->cwd);
+  //nice value 복사
+  np->nice = curproc->nice;
+
 
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
@@ -598,7 +603,7 @@ int setnice(int pid, int value)
   {
     if (p->pid == pid)
     { // pid가 일치하면
-      if (p->nice >= 0 && p->nice <= 39)
+      if (value >= 0 && value <= 39)
       {                  // nice value 범위: 0~39
         p->nice = value; // nice값을 value로 변경
         release(&ptable.lock);
@@ -625,10 +630,29 @@ void ps(int pid)
   // pid가 0이면 모든 프로세스의 정보를 출력
   if (pid == 0)
   {
-    cprintf("name       pid     state           priority\n");
+    cprintf("name\t\t\tpid\t\t\tstate   \t\t\tpriority\n");
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
-      cprintf("%s       %d     %s           %d\n", p->name, p->pid, p->state, p->nice);
+      //상태를 문자열로 변환
+      switch (p->state) {
+      case UNUSED:
+          break;
+      case EMBRYO:
+          cprintf("%s\t\t\t%d\t\t\tEMBRYO  \t\t\t%d\n", p->name, p->pid, p->nice);
+          break;
+      case SLEEPING:
+          cprintf("%s\t\t\t%d\t\t\tSLEEPING\t\t\t%d\n", p->name, p->pid, p->nice);
+          break;
+      case RUNNABLE:
+          cprintf("%s\t\t\t%d\t\t\tRUNNABLE\t\t\t%d\n", p->name, p->pid, p->nice);
+          break;
+      case RUNNING:
+          cprintf("%s\t\t\t%d\t\t\tRUNNING \t\t\t%d\n", p->name, p->pid, p->nice);
+          break;
+      case ZOMBIE:
+          cprintf("%s\t\t\t%d\t\t\tZOMBIE  \t\t\t%d\n", p->name, p->pid, p->nice);
+          break;
+      }    
     }
     release(&ptable.lock);
     return;
@@ -641,8 +665,27 @@ void ps(int pid)
       // pid가 일치하면 해당 프로세스의 정보를 출력
       if (p->pid == pid)
       {
-        cprintf("name       pid     state           priority\n");
-        cprintf("%s       %d     %s           %d\n", p->name, p->pid, p->state, p->nice);
+        cprintf("name\t\t\tpid\t\t\tstate   \t\t\tpriority\n");
+        //상태를 문자열로 변환
+        switch (p->state) {
+        case UNUSED:
+            break;
+        case EMBRYO:
+            cprintf("%s\t\t\t%d\t\t\tEMBRYO  \t\t\t%d\n", p->name, p->pid, p->nice);
+            break;
+        case SLEEPING:
+            cprintf("%s\t\t\t%d\t\t\tSLEEPING\t\t\t%d\n", p->name, p->pid, p->nice);
+            break;
+        case RUNNABLE:
+            cprintf("%s\t\t\t%d\t\t\tRUNNABLE\t\t\t%d\n", p->name, p->pid, p->nice);
+            break;
+        case RUNNING:
+            cprintf("%s\t\t\t%d\t\t\tRUNNING \t\t\t%d\n", p->name, p->pid, p->nice);
+            break;
+        case ZOMBIE:
+            cprintf("%s\t\t\t%d\t\t\tZOMBIE  \t\t\t%d\n", p->name, p->pid, p->nice);
+            break;
+        }    
         release(&ptable.lock);
         return;
       }

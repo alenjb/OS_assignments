@@ -14,22 +14,20 @@ int main(int argc, char const *argv[])
 
     //getnice관련
     for(i=1; i<11; i++){
-        printf(1, "getnice 성공  %d\n", i);
-        getnice(i);
+        printf(1, "getnice 성공  %d\n", getnice(i));
     }
-    prinf(2, "getnice 오류: 일치하는 pid 없음\n");
+    printf(2, "getnice 오류: 일치하는 pid 없음\n");
     getnice(1234);
 
-    //setnice관련
-    for(i=1; i<11; i++){
-        printf(1, "setnice 성공  %d의 nice를 %d로 지정\n", i, i);
-        setnice(i, i);
-    }
-    prinf(2, "setnice 오류 1: 일치하는 pid 없음\n");
-    setnice(1234, 20);
+    // //setnice관련
+    // for(i=1; i<11; i++){
+    //     printf(1, "setnice 성공  %d의 nice를 %d로 지정\n", i, i);
+    //     setnice(i, i);
+    // }
+    printf(2, "setnice 오류 1: 일치하는 pid 없음 : %d \n", setnice(1234, 20));
     
-    prinf(2, "setnice 오류 2: nice값이 범위를 넘어감\n");
-    setnice(3, -1);
+    
+    printf(2, "setnice 오류 2: nice값이 범위를 넘어감: %d \n", setnice(3, -1));
 
     //ps관련
     printf(1, "ps 성공 모든 프로세스 출력: \n");

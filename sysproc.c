@@ -99,7 +99,7 @@ int sys_getpname(void){
 }
 
 //getnice
-int sys_getnice(int){
+int sys_getnice(void){
   int pid;
   if(argint(0, &pid) < 0)
     return -1;
@@ -107,7 +107,7 @@ int sys_getnice(int){
 }
 
 //setnice
-int sys_setnice(int, int){
+int sys_setnice(void){
   int pid, value;
   // pid < 0 or  0 > nicevalue or nicevalue > 39 이면 
   if(argint(0, &pid) < 0 || argint(1, &value) < 0 || argint(1, &value) > 39)
@@ -116,10 +116,11 @@ int sys_setnice(int, int){
 }
 
 //ps
-void sys_ps(int){
+int sys_ps(void){
   int pid;
   if(argint(0, &pid) < 0)
-    return;
-  return ps(pid);
+    return -1;
+  ps(pid);
+  return 0;
 }
 
