@@ -51,7 +51,9 @@ struct proc {
   char name[16];               // Process name (debugging)
   int nice;                    // nice value(0~39) proj2에서 추가
   uint runtime;                // 프로세스의 실제 실행시간 proj3에서 추가
+  uint lastRuntime;            // 프로세스의 최근 실행시간 proj3에서 추가
   uint vruntime;               // 프로세스의 가상 실행시간 proj3에서 추가
+  uint timeslice;              // 프로세스의 할당받은 실행시간 proj3에서 추가
   int weight;                  // 프로세스의 가중치 proj3에서 추가
 };
 

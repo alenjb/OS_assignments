@@ -7,6 +7,8 @@
 #include "proc.h"
 #include "spinlock.h"
 
+# define MAX_UINT 4294967295
+
 struct
 {
   struct spinlock lock;
@@ -101,7 +103,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  p->nice = 20; // nice값 20으로 초기화
+  setnice(p->pid, 20); // nice값 20으로 초기화
 
   release(&ptable.lock);
 
@@ -158,7 +160,14 @@ void userinit(void)
 
   p->weight = weightArr[p->nice - 20]; // weight값을 하드코딩한 어레이에서 가져오기
   p->runtime = 0; //runtime을 0으로
-  p->vruntime = 0; // vrumtime을 0으로 초기화
+  p->lastRuntime = 0; //최근 실행시간 = 0
+  p->timeslice = 0; //timeslice 0으로 초기화
+  //weight 계산
+  // 1. fork를 통해 생성된 프로세스는 부모의 vruntime을 상속받음
+  if (p->parent)
+    p->vruntime = p->parent->vruntime; 
+  // 2. 이외
+  p->vruntime = 1024 / p->weight; // vrumtime을 1tick * 1024 / weight of current process로 초기화
 
   // this assignment to p->state lets other cores
   // run this process. the acquire forces the above
@@ -229,8 +238,10 @@ int fork(void)
       np->ofile[i] = filedup(curproc->ofile[i]);
   np->cwd = idup(curproc->cwd);
   //nice value 복사
-  np->nice = curproc->nice;
-
+  setnice(np->pid, curproc->nice);
+  //부모의 vruntime을 상속
+  np->vruntime = curproc->vruntime;
+  np->runtime = 0;
 
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
@@ -349,7 +360,8 @@ int wait(void)
 //   - swtch to start running that process
 //   - eventually that process transfers control
 //       via swtch back to the scheduler.
-void scheduler(void)
+void
+scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
@@ -360,21 +372,42 @@ void scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
+    // Initialize variables for CFS scheduling
+    struct proc *chosen = 0;
+    uint min_vruntime = MAX_UINT; // 가장 큰 unsigned int 값으로 초기화
+    uint totalWeight = calculate_total_weight();
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
       if (p->state != RUNNABLE)
         continue;
-
-      // Switch to chosen process.  It is the process's job
+      // Calculate vruntime
+      uint vruntime = p->lastRuntime * 1024 / totalWeight;
+      
+      //제일 최소값의 vruntime을 찾기
+      if (vruntime < min_vruntime)
+      {
+        min_vruntime = vruntime;
+        chosen = p;
+      }
+    }
+    //선택한 프로세스를 스케줄링
+    if (chosen)
+    {
+      // Switch to chosen process. It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      c->proc = chosen;
+      //현재 프로세스의 lastRuntime=0으로 초기화
+      chosen->lastRuntime = 0;
+      //p의 타임슬라이스 계산
+      chosen->timeslice = 10 * p->weight / totalWeight;
 
-      swtch(&(c->scheduler), p->context);
+      switchuvm(chosen);
+      chosen->state = RUNNING;
+
+      swtch(&(c->scheduler), chosen->context);
       switchkvm();
 
       // Process is done running for now.
@@ -384,6 +417,7 @@ void scheduler(void)
     release(&ptable.lock);
   }
 }
+
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
@@ -415,6 +449,9 @@ void yield(void)
 {
   acquire(&ptable.lock); // DOC: yieldlock
   myproc()->state = RUNNABLE;
+  //vruntime 계산
+  uint totalWeight = calculate_total_weight();
+  uint vruntime = myproc()->lastRuntime * 1024 / totalWeight;
   sched();
   release(&ptable.lock);
 }
@@ -487,10 +524,27 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
-
-  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if (p->state == SLEEPING && p->chan == chan)
+  struct proc *this; //깨어날 프로세스를 가리키는 포인터
+  int numRunnable = 0; //runnable인 프로세스의 숫자
+  uint minVtime = MAX_UINT; // 레디큐의 minVtime 값
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){//runnable한 프로세스가 있으면
+      numRunnable ++; //runnable 프로세스 개수 증가
+      if(p->vruntime < minVtime){
+        minVtime = p->vruntime; //minVtime 업데이트
+      }
+    }
+    else if (p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      this =p;
+    }    
+  }
+  //wakeup시 runnable인 프로세스가 없으면 
+  if (numRunnable == 0){
+    this->vruntime = 0; // vrumtime = 0
+  }else{ //wakeup시 runnable한 프로세스가 있으면
+    this->vruntime = minVtime - 1; //minimum vruntime of processes in the ready queue – vruntime(1tick)
+  }
 }
 
 // Wake up all processes sleeping on chan.
@@ -499,6 +553,7 @@ void wakeup(void *chan)
   acquire(&ptable.lock);
   wakeup1(chan);
   release(&ptable.lock);
+  
 }
 
 // Kill the process with the given pid.
@@ -707,4 +762,39 @@ void ps(int pid)
     release(&ptable.lock);
     return; // 일치하는 pid가 없으므로 종료
   }
+}
+
+//다른 프로세스 중에 runnable한 프로세스가 있는지 확인하여 있으면 1을 리턴하는 함수
+static int checkRunnableProcesses(struct proc *proc)
+{
+  struct proc *p;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&ptable.lock);
+    if (p->state == RUNNABLE) {
+      return 1;
+    }
+    release(&ptable.lock);
+  }
+  return 0;
+}
+
+// Runnable 프로세스들의 weight 합을 계산하는 함수
+int
+calculate_total_weight(void)
+{
+  int total_weight = 0;
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->state == RUNNABLE)
+    {
+      total_weight += p->weight;
+    }
+  }
+  release(&ptable.lock);
+
+  return total_weight;
 }

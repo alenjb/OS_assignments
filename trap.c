@@ -55,6 +55,18 @@ trap(struct trapframe *tf)
       release(&tickslock);
     }
     lapiceoi();
+    // 타이머 인터럽트 처리
+    if (myproc() && (tf->cs & 3) == DPL_USER) {
+      myproc()->runtime++;  // 현재 실행 중인 프로세스의 runtime 증가
+      myproc()->lastRuntime++; //최근 실행시간 증가
+      uint totalWeight = calculate_total_weight();
+      myproc()->vruntime = myproc()->lastRuntime * 1024 / totalWeight;
+      
+      // 시간대가 소진되었는지 확인
+      if (myproc()->runtime >= myproc()->timeslice) {
+        yield();  // CPU를 다음 프로세스에 양도
+      }
+    }
     break;
   case T_IRQ0 + IRQ_IDE:
     ideintr();
