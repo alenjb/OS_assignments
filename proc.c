@@ -15,6 +15,16 @@ struct
 
 static struct proc *initproc;
 
+static int weightArr[]= {  //weight 계산 테이블
+  /* 0 */		88761,		71755,		56483,		46273,		36291,
+  /* 5 */		29154,		23254,		18705,		14949,		11916,
+  /* 10 */		9548,		7620,		6100,		4984,		3906,
+  /* 15 */		3121,		2501,		1991,		1586,		1277,
+  /* 20 */		1024,		820,		655,		526,		423,
+  /* 25 */		335,		272,		215,		172,		137,
+  /* 30 */		110,		87,		70,		56,		45,
+  /* 35 */		36,		29,		23,		18,		15};
+
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -145,6 +155,10 @@ void userinit(void)
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
+
+  p->weight = weightArr[p->nice - 20]; // weight값을 하드코딩한 어레이에서 가져오기
+  p->runtime = 0; //runtime을 0으로
+  p->vruntime = 0; // vrumtime을 0으로 초기화
 
   // this assignment to p->state lets other cores
   // run this process. the acquire forces the above
