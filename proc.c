@@ -695,31 +695,36 @@ void ps(int pid)
 
   // ptable 가져오기
   acquire(&ptable.lock);
+  cprintf("=== TEST START ===");
 
   // pid가 0이면 모든 프로세스의 정보를 출력
   if (pid == 0)
   {
-    cprintf("name\t\t\tpid\t\t\tstate   \t\t\tpriority\n");
+    cprintf("name\t\t\tpid\t\t\tstate   \t\t\tpriority\t\t\truntime/weight\t\t\truntime\t\t\tvruntime\t\t\t\ttick %llu\n", ticks*1000);
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
+      unsigned long long runtime = p->runtime * 1000;
+      unsigned long long vruntime = p->vruntime * 1000;
+      int weight = p->weight;
+      unsigned long long rw = runtime / weight;
       //상태를 문자열로 변환
       switch (p->state) {
       case UNUSED:
           break;
       case EMBRYO:
-          cprintf("%s\t\t\t%d\t\t\tEMBRYO  \t\t\t%d\n", p->name, p->pid, p->nice);
+          cprintf("%s\t\t\t%d\t\t\tEMBRYO  \t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
           break;
       case SLEEPING:
-          cprintf("%s\t\t\t%d\t\t\tSLEEPING\t\t\t%d\n", p->name, p->pid, p->nice);
+          cprintf("%s\t\t\t%d\t\t\tSLEEPING\t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
           break;
       case RUNNABLE:
-          cprintf("%s\t\t\t%d\t\t\tRUNNABLE\t\t\t%d\n", p->name, p->pid, p->nice);
+          cprintf("%s\t\t\t%d\t\t\tRUNNABLE\t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
           break;
       case RUNNING:
-          cprintf("%s\t\t\t%d\t\t\tRUNNING \t\t\t%d\n", p->name, p->pid, p->nice);
+          cprintf("%s\t\t\t%d\t\t\tRUNNING \t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
           break;
       case ZOMBIE:
-          cprintf("%s\t\t\t%d\t\t\tZOMBIE  \t\t\t%d\n", p->name, p->pid, p->nice);
+          cprintf("%s\t\t\t%d\t\t\tZOMBIE  \t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
           break;
       }    
     }
@@ -731,29 +736,34 @@ void ps(int pid)
     // pid가 0이 아니면 해당 프로세스의 정보를 출력
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
+      
       // pid가 일치하면 해당 프로세스의 정보를 출력
       if (p->pid == pid)
       {
-        cprintf("name\t\t\tpid\t\t\tstate   \t\t\tpriority\n");
+        cprintf("name\t\t\tpid\t\t\tstate   \t\t\tpriority\t\t\truntime/weight\t\t\truntime\t\t\tvruntime\t\t\t\ttick %llu\n", ticks*1000);
+        unsigned long long runtime = p->runtime * 1000;
+        unsigned long long vruntime = p->vruntime * 1000;
+        int weight = p->weight;
+        unsigned long long rw = runtime / weight;
         //상태를 문자열로 변환
         switch (p->state) {
         case UNUSED:
             break;
         case EMBRYO:
-            cprintf("%s\t\t\t%d\t\t\tEMBRYO  \t\t\t%d\n", p->name, p->pid, p->nice);
-            break;
-        case SLEEPING:
-            cprintf("%s\t\t\t%d\t\t\tSLEEPING\t\t\t%d\n", p->name, p->pid, p->nice);
-            break;
-        case RUNNABLE:
-            cprintf("%s\t\t\t%d\t\t\tRUNNABLE\t\t\t%d\n", p->name, p->pid, p->nice);
-            break;
-        case RUNNING:
-            cprintf("%s\t\t\t%d\t\t\tRUNNING \t\t\t%d\n", p->name, p->pid, p->nice);
-            break;
-        case ZOMBIE:
-            cprintf("%s\t\t\t%d\t\t\tZOMBIE  \t\t\t%d\n", p->name, p->pid, p->nice);
-            break;
+          cprintf("%s\t\t\t%d\t\t\tEMBRYO  \t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
+          break;
+      case SLEEPING:
+          cprintf("%s\t\t\t%d\t\t\tSLEEPING\t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
+          break;
+      case RUNNABLE:
+          cprintf("%s\t\t\t%d\t\t\tRUNNABLE\t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
+          break;
+      case RUNNING:
+          cprintf("%s\t\t\t%d\t\t\tRUNNING \t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
+          break;
+      case ZOMBIE:
+          cprintf("%s\t\t\t%d\t\t\tZOMBIE  \t\t\t%d\t\t\t%d\t\t\t%d\t\t\t%llu\n", p->name, p->pid, p->nice, rw, runtime, vruntime);
+          break;
         }    
         release(&ptable.lock);
         return;
